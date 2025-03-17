@@ -1,0 +1,39 @@
+FROM python:3.11
+
+WORKDIR /app
+
+# Build arguments
+ARG USERNAME=ansibleuser
+ARG PASSWORD=password
+ARG VENV_DIR=python-venv
+ARG VENV_NAME=ansible-venv
+
+# Create and log into non-root user
+RUN useradd -m -p $(openssl passwd -1 $PASSWORD) $USERNAME && \
+    usermod -aG sudo $USERNAME
+USER $USERNAME
+WORKDIR /home/$USERNAME
+
+# Set up virtual environment
+RUN mkdir $VENV_DIR && \
+    python -m venv $VENV_NAME
+
+ENV PATH="/home/$USERNAME/$VENV_DIR/bin:$PATH"
+
+# Change working directory
+WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME
+
+# # Install Python dependencies
+# RUN pip install --upgrade pip && pip install -r docker-requirements.txt
+
+# RUN git clone https://github.com/ansible-network/resource_module_builder.git
+# RUN git clone https://github.com/ansible-network/resource_module_models.git
+# RUN git clone https://github.com/ansible-collections/dellemc.enterprise_sonic.git
+# # Create branches for resource models/enterprise repos?
+# # Update working dir
+# WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic
+
+# # Install SONiC collection
+# COPY sonic_install_collection.sh /home/$USERNAME/sonic_install_collection.sh
+# RUN chmod +x /home/$USERNAME/sonic_install_collection.sh
+# RUN /home/$USERNAME/setup.sh
