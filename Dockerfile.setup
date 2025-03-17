@@ -7,6 +7,9 @@ ARG USERNAME=ansibleuser
 ARG PASSWORD=password
 ARG VENV_DIR=python-venv
 ARG VENV_NAME=ansible-venv
+ARG GIT_USER
+ARG GIT_TOKEN
+ARG ANSIBLE_BRANCH=main
 
 # Create and log into non-root user
 RUN useradd -m -p $(openssl passwd -1 $PASSWORD) $USERNAME && \
@@ -23,17 +26,23 @@ ENV PATH="/home/$USERNAME/$VENV_DIR/bin:$PATH"
 # Change working directory
 WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME
 
-# # Install Python dependencies
-# RUN pip install --upgrade pip && pip install -r docker-requirements.txt
+# Update git credentials
+RUN git config --global credential.helper store
+RUN echo "https://$GIT_USER:$GIT_TOKEN@github.com" > ~/.git-credentials
 
-# RUN git clone https://github.com/ansible-network/resource_module_builder.git
-# RUN git clone https://github.com/ansible-network/resource_module_models.git
-# RUN git clone https://github.com/ansible-collections/dellemc.enterprise_sonic.git
-# # Create branches for resource models/enterprise repos?
-# # Update working dir
-# WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic
+# Clone repositories
+RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/resource_module_builder.git
+RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/resource_module_models.git
+RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/ansible-collections/dellemc.enterprise_sonic.git
 
-# # Install SONiC collection
-# COPY sonic_install_collection.sh /home/$USERNAME/sonic_install_collection.sh
-# RUN chmod +x /home/$USERNAME/sonic_install_collection.sh
-# RUN /home/$USERNAME/setup.sh
+# Set working directory
+WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic
+RUN git checkout $ANSIBLE_BRANCH
+
+# Install Python dependencies
+RUN /bin/bash -c "source /home/$USERNAME/$VENV_NAME/bin/activate && pip install --upgrade pip && pip install -r docker-requirements.txt"
+
+# Install SONiC collection
+COPY sonic_install_collection.sh /home/$USERNAME/sonic_install_collection.sh
+RUN chmod +x /home/$USERNAME/sonic_install_collection.sh
+RUN /home/$USERNAME/setup.sh
