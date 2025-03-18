@@ -14,12 +14,16 @@ ARG ANSIBLE_BRANCH=main
 # Create and log into non-root user
 RUN useradd -m -p $(openssl passwd -1 $PASSWORD) $USERNAME && \
     usermod -aG sudo $USERNAME
+# Change ownership
+RUN mkdir -p /home/$USERNAME/$VENV_DIR && \
+    chown -R $USERNAME:$USERNAME /home/$USERNAME && \
+    chown -R $USERNAME:$USERNAME /home/$USERNAME/$VENV_DIR
+# Login to user
 USER $USERNAME
-WORKDIR /home/$USERNAME
+WORKDIR /home/$USERNAME/$VENV_DIR
 
 # Set up virtual environment
-RUN mkdir $VENV_DIR && \
-    python -m venv $VENV_NAME
+RUN python -m venv $VENV_NAME
 
 ENV PATH="/home/$USERNAME/$VENV_DIR/bin:$PATH"
 
@@ -31,18 +35,17 @@ RUN git config --global credential.helper store
 RUN echo "https://$GIT_USER:$GIT_TOKEN@github.com" > ~/.git-credentials
 
 # Clone repositories
-RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/resource_module_builder.git
+RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/ansible-network/resource_module_builder.git
 RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/resource_module_models.git
-RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/ansible-collections/dellemc.enterprise_sonic.git
+RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/dellemc.enterprise_sonic.git
 
 # Set working directory
 WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic
 RUN git checkout $ANSIBLE_BRANCH
 
 # Install Python dependencies
-RUN /bin/bash -c "source /home/$USERNAME/$VENV_NAME/bin/activate && pip install --upgrade pip && pip install -r docker-requirements.txt"
+RUN /bin/bash -c "source /home/$USERNAME/$VENV_DIR/$VENV_NAME/bin/activate && pip install --upgrade pip && pip install -r docker-requirements.txt"
 
 # Install SONiC collection
-COPY sonic_install_collection.sh /home/$USERNAME/sonic_install_collection.sh
-RUN chmod +x /home/$USERNAME/sonic_install_collection.sh
-RUN /home/$USERNAME/setup.sh
+RUN chmod +x /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh
+RUN /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh
