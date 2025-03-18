@@ -5,11 +5,17 @@ WORKDIR /app
 # Build arguments
 ARG USERNAME=ansibleuser
 ARG PASSWORD=password
-ARG VENV_DIR=python-venv
+ARG VENV_DIR=python-venvs
 ARG VENV_NAME=ansible-venv
 ARG GIT_USER
 ARG GIT_TOKEN
 ARG ANSIBLE_BRANCH=main
+
+# Check if GIT_USER and GIT_TOKEN are set
+RUN if [ -z "$GIT_USER" ] || [ -z "$GIT_TOKEN" ]; then \
+        echo "Error: GIT_USER and GIT_TOKEN must be provided"; \
+        exit 1; \
+    fi
 
 # Create and log into non-root user
 RUN useradd -m -p $(openssl passwd -1 $PASSWORD) $USERNAME && \
@@ -43,9 +49,9 @@ RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/dellemc.enterpri
 WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic
 RUN git checkout $ANSIBLE_BRANCH
 
-# Install Python dependencies
-RUN /bin/bash -c "source /home/$USERNAME/$VENV_DIR/$VENV_NAME/bin/activate && pip install --upgrade pip && pip install -r docker-requirements.txt"
-
-# Install SONiC collection
-RUN chmod +x /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh
-RUN /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh
+# Install Python dependencies and install SONiC collection
+RUN /bin/bash -c "source /home/$USERNAME/$VENV_DIR/$VENV_NAME/bin/activate && \
+pip install --upgrade pip && \
+pip install -r docker-requirements.txt && \
+chmod +x /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh && \
+/home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh"
