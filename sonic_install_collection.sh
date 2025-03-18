@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define variables
-PROJECT_DIR="/home/$USERNAME/python-venvs/ansible-venv/dellemc.enterprise_sonic"
+PROJECT_DIR="/home/$USERNAME/ansible-github/dellemc.enterprise_sonic"
 REQUIREMENTS_FILE="$PROJECT_DIR/../requirements.yml"
 
 # Populate requirements.yml
