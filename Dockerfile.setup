@@ -5,8 +5,7 @@ WORKDIR /app
 # Build arguments
 ARG USERNAME=ansibleuser
 ARG PASSWORD=password
-ARG VENV_DIR=python-venvs
-ARG VENV_NAME=ansible-venv
+ARG DIR=ansible-github
 ARG GIT_USER
 ARG GIT_TOKEN
 ARG ANSIBLE_BRANCH=main
@@ -21,20 +20,12 @@ RUN if [ -z "$GIT_USER" ] || [ -z "$GIT_TOKEN" ]; then \
 RUN useradd -m -p $(openssl passwd -1 $PASSWORD) $USERNAME && \
     usermod -aG sudo $USERNAME
 # Change ownership
-RUN mkdir -p /home/$USERNAME/$VENV_DIR && \
+RUN mkdir -p /home/$USERNAME/$DIR && \
     chown -R $USERNAME:$USERNAME /home/$USERNAME && \
-    chown -R $USERNAME:$USERNAME /home/$USERNAME/$VENV_DIR
+    chown -R $USERNAME:$USERNAME /home/$USERNAME/$DIR
 # Login to user
 USER $USERNAME
-WORKDIR /home/$USERNAME/$VENV_DIR
-
-# Set up virtual environment
-RUN python -m venv $VENV_NAME
-
-ENV PATH="/home/$USERNAME/$VENV_DIR/bin:$PATH"
-
-# Change working directory
-WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME
+WORKDIR /home/$USERNAME/$DIR
 
 # Update git credentials
 RUN git config --global credential.helper store
@@ -46,12 +37,24 @@ RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/resource_module_
 RUN git clone https://$GIT_USER:$GIT_TOKEN@github.com/$GIT_USER/dellemc.enterprise_sonic.git
 
 # Set working directory
-WORKDIR /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic
-RUN git checkout $ANSIBLE_BRANCH
+WORKDIR /home/$USERNAME/$DIR/dellemc.enterprise_sonic
+# Check if the branch exists, create and push if it doesn't, otherwise checkout
+RUN git fetch origin && \
+    if [ $(git ls-remote --heads origin refs/heads/$ANSIBLE_BRANCH | wc -l) -eq 1 ]; then \
+        git checkout $ANSIBLE_BRANCH; \
+    else \
+        git checkout -b $ANSIBLE_BRANCH && \
+        git push -u origin $ANSIBLE_BRANCH; \
+    fi
 
-# Install Python dependencies and install SONiC collection
-RUN /bin/bash -c "source /home/$USERNAME/$VENV_DIR/$VENV_NAME/bin/activate && \
-pip install --upgrade pip && \
-pip install -r docker-requirements.txt && \
-chmod +x /home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh && \
-/home/$USERNAME/$VENV_DIR/$VENV_NAME/dellemc.enterprise_sonic/sonic_install_collection.sh"
+# Add local bin to PATH
+ENV PATH="/home/$USERNAME/.local/bin:$PATH"
+
+# Install dependencies
+RUN pip install --user --upgrade pip
+RUN pip install --user ansible
+RUN pip install --user paramiko
+
+# Install SONiC Collection
+RUN chmod +x /home/$USERNAME/$DIR/dellemc.enterprise_sonic/sonic_install_collection.sh
+RUN /home/$USERNAME/$DIR/dellemc.enterprise_sonic/sonic_install_collection.sh
